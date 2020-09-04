@@ -1,34 +1,252 @@
 ---
-title: "Economic and Health Impact from Storms in the United States"
+title: "Economic and Health Impact from Storms in Kansas, USA"
 author: "Kevin Rojas Bohorquez"
 date: "September 2, 2020"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 ## Sypnosis
 
-In this report we aim to describe which type of events in a storm are most harmful with respect to population health and which had the greatest economic consequences between the years 1996 and 2011.
+In this report we aim to describe which type of events in a storm are most harmful with respect to population health and which had the greatest economic consequences between the years 1996 and 2011. Our overall hypothesis is that *DROUGHT* is the most harmful and *HEAVY SNOW* is the event that has the greatest economic consequences in Kansas. To investigate this hypothesis, We obtained the money amount of damaged property, injures and fatalities per event from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. We specifically obtained data for the years 1996 and 2011, because from 1996 it is obtained all the types of event. The results vary a lot from state to state because of their geography. Thus we only focus on Kansas(KS) and compare their means in order to get the results such as which event has the highest economic damage mean per type of event and the highest casualties per type of event.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-
-```
 
 ## Data Processing
 
-You can also embed plots, for example:
+From the [NOAA](https://www.ncdc.noaa.gov/stormevents/) we obtained its [Storm Database](https://www.ncdc.noaa.gov/stormevents/ftp.jsp) where we can find all the major storms and weather events in the United States.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+### Reading the Data:
+
+We first read the data with *read.csv* (this function allows us unzip the file without any problem) with its default parameters.
+
+```{r echo=TRUE,cache = TRUE}
+stormUSA<-read.csv("repdata_data_StormData.csv.bz2")
+```
+
+After reading in the data, we check the first few rows (there are 902,297) rows in this dataset.
+
+```{r echo=TRUE}
+dim(stormUSA)
+
+head(stormUSA[,1:8])
+```
+
+### Processing the Data:
+
+We proceed to clean the data and we need these libraries:
+
+```{r echo=TRUE, message = FALSE}
+library("dplyr")
+library("stringr")
+```
+
+First we transform the column BGN_DATE to *Date*, then we filter it from 1996, later we select the columns we need for the analysis and finally we get the rows with PROPDMG or CROPDMG more than zero.
+
+```{r echo=TRUE}
+stormUSA$BGN_DATE<-as.Date(stormUSA$BGN_DATE, format = "%m/%d/%Y")
+stormUSA1996up <-stormUSA %>% filter(BGN_DATE>='1996-01-01') %>%
+select(EVTYPE,STATE,FATALITIES,INJURIES,PROPDMG,CROPDMG,PROPDMGEXP,CROPDMGEXP) %>%
+  filter(PROPDMG>0 | CROPDMG>0)
+```
+
+We detect that column *EVTYPE* has some values different from the [Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf). There must be up to 48 types, but there are 186.
+
+```{r echo=TRUE}
+length(unique(stormUSA1996up$EVTYPE))
+```
+
+First, we proceed to erase all the spaces in the column and uppercase it. Then following the documentation, we change the values with its accurate type.
+
+```{r echo=TRUE,cache = TRUE}
+stormUSA1996up$EVTYPE<-(str_squish(toupper(stormUSA1996up$EVTYPE)))
+
+## COASTAL FLOOD
+stormUSA1996up[grep("COASTAL FLOOD",stormUSA1996up$EVTYPE),]$EVTYPE="COASTAL FLOOD"
+stormUSA1996up[grep("CSTL FLOOD",stormUSA1996up$EVTYPE),]$EVTYPE="COASTAL FLOOD"
+stormUSA1996up[grep("COASTAL EROSION",stormUSA1996up$EVTYPE),]$EVTYPE="COASTAL FLOOD"
+
+## COLD/WIND CHILL
+stormUSA1996up[grep("COLD$",stormUSA1996up$EVTYPE),]$EVTYPE="COLD/WIND CHILL"
+
+## DEBRIS FLOW
+stormUSA1996up[grep("LANDSLIDE",stormUSA1996up$EVTYPE),]$EVTYPE="DEBRIS FLOW"
+stormUSA1996up[grep("LANDSLUMP",stormUSA1996up$EVTYPE),]$EVTYPE="DEBRIS FLOW"
+
+## DENSE FOG
+stormUSA1996up[grep("^FOG",stormUSA1996up$EVTYPE),]$EVTYPE="DENSE FOG"
+
+## DUST STORM
+stormUSA1996up[grep("BLOWING DUST",stormUSA1996up$EVTYPE),]$EVTYPE="DUST STORM"
+
+## EXTREME COLD/WIND CHILL
+stormUSA1996up[grep("EXTREME",stormUSA1996up$EVTYPE),]$EVTYPE="EXTREME COLD/WIND CHILL"
+
+## FLASH FLOOD
+stormUSA1996up[grep("JAM",stormUSA1996up$EVTYPE),]$EVTYPE="FLASH FLOOD"
+stormUSA1996up[grep("MUD",stormUSA1996up$EVTYPE),]$EVTYPE="FLASH FLOOD"
+stormUSA1996up[grep("ROCK",stormUSA1996up$EVTYPE),]$EVTYPE="FLASH FLOOD"
+stormUSA1996up[grep("DAM ",stormUSA1996up$EVTYPE),]$EVTYPE="FLASH FLOOD"
+stormUSA1996up[grep("RIVER FLOOD",stormUSA1996up$EVTYPE),]$EVTYPE="FLASH FLOOD"
+
+## FLOOD
+stormUSA1996up[grep("/FLOOD",stormUSA1996up$EVTYPE),]$EVTYPE="FLOOD"
+stormUSA1996up[grep("TIDAL FLOOD",stormUSA1996up$EVTYPE),]$EVTYPE="FLOOD"
+
+## FREEZING FOG
+stormUSA1996up[grep("GLAZE",stormUSA1996up$EVTYPE),]$EVTYPE="FREEZING FOG"
+
+## FROST/FREEZE
+stormUSA1996up[grep("FREEZE",stormUSA1996up$EVTYPE),]$EVTYPE="FROST/FREEZE"
+stormUSA1996up[grep("FROST",stormUSA1996up$EVTYPE),]$EVTYPE="FROST/FREEZE"
+
+## HAIL
+stormUSA1996up[grep("SMALL HAIL",stormUSA1996up$EVTYPE),]$EVTYPE="HAIL"
+
+## HEAT
+stormUSA1996up[grep("UNSEASONABLY WARM",stormUSA1996up$EVTYPE),]$EVTYPE="HEAT"
+
+## HEAVY RAIN
+stormUSA1996up[grep("STREAM",stormUSA1996up$EVTYPE),]$EVTYPE="HEAVY RAIN"
+stormUSA1996up[grep("^RAIN$",stormUSA1996up$EVTYPE),]$EVTYPE="HEAVY RAIN"
+stormUSA1996up[grep("UNSEASONAL RAIN$",stormUSA1996up$EVTYPE),]$EVTYPE="HEAVY RAIN"
+
+## HEAVY SNOW
+stormUSA1996up[grep("EXCESSIVE SNOW",stormUSA1996up$EVTYPE),]$EVTYPE="HEAVY SNOW"
+
+## HIGH SURF
+stormUSA1996up[grep("SURF",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH SURF"
+stormUSA1996up[grep("BEACH EROSION",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH SURF"
+stormUSA1996up[grep("HIGH SWELLS",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH SURF"
+stormUSA1996up[grep("ASTRONOMICAL HIGH TIDE",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH SURF"
+stormUSA1996up[grep("HIGH SEAS",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH SURF"
+stormUSA1996up[grep("MARINE ACCIDENT",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH SURF"
+stormUSA1996up[grep("WIND AND WAVE",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH SURF"
+
+## HIGH WIND
+stormUSA1996up[grep("^HIGH WIND",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH WIND"
+stormUSA1996up[grep("NON-SEVERE WIND DAMAGE",stormUSA1996up$EVTYPE),]$EVTYPE="HIGH WIND"
+
+## HURRICANE (TYPHOON)
+stormUSA1996up[grep("HURRICANE",stormUSA1996up$EVTYPE),]$EVTYPE="HURRICANE (TYPHOON)"
+stormUSA1996up[grep("TYPHOON",stormUSA1996up$EVTYPE),]$EVTYPE="HURRICANE (TYPHOON)"
+
+## LAKE-EFFECT SNOW
+stormUSA1996up[grep("LAKE EFFECT",stormUSA1996up$EVTYPE),]$EVTYPE="LAKE-EFFECT SNOW"
+stormUSA1996up[grep("SNOW SHOWER",stormUSA1996up$EVTYPE),]$EVTYPE="LAKE-EFFECT SNOW"
+
+## RIP CURRENT
+stormUSA1996up[grep("RIP CURRENT",stormUSA1996up$EVTYPE),]$EVTYPE="RIP CURRENT"
+
+## STORM SURGE/TIDE
+stormUSA1996up[grep("STORM SURGE",stormUSA1996up$EVTYPE),]$EVTYPE="STORM SURGE/TIDE"
+
+## STRONG WIND
+stormUSA1996up[grep("STRONG WINDS",stormUSA1996up$EVTYPE),]$EVTYPE="STRONG WIND"
+stormUSA1996up[grep("GUSTY WIND",stormUSA1996up$EVTYPE),]$EVTYPE="STRONG WIND"
+stormUSA1996up[grep("^WIND DAMAGE",stormUSA1996up$EVTYPE),]$EVTYPE="STRONG WIND"
+stormUSA1996up[grep("^WIND$",stormUSA1996up$EVTYPE),]$EVTYPE="STRONG WIND"
+
+## THUNDERSTORM WIND
+stormUSA1996up[grep("BURST",stormUSA1996up$EVTYPE),]$EVTYPE="THUNDERSTORM WIND"
+stormUSA1996up$EVTYPE<-sub("TSTM","THUNDERSTORM",stormUSA1996up$EVTYPE)
+stormUSA1996up[grep("THUNDERSTORM WIND ",stormUSA1996up$EVTYPE),]$EVTYPE="THUNDERSTORM WIND"
+stormUSA1996up[grep("WHIRLWIND",stormUSA1996up$EVTYPE),]$EVTYPE="THUNDERSTORM WIND"
+stormUSA1996up[grep("THUNDERSTORM WIND/HAIL",stormUSA1996up$EVTYPE),]$EVTYPE="THUNDERSTORM WIND"
+
+## TORNADO
+stormUSA1996up[grep("LANDSPOUT",stormUSA1996up$EVTYPE),]$EVTYPE="TORNADO"
+
+## TROPICAL DEPRESSION
+stormUSA1996up[grep("GRADIENT WIND",stormUSA1996up$EVTYPE),]$EVTYPE="TROPICAL DEPRESSION"
+
+## TROPICAL STORM
+stormUSA1996up[grep("COASTAL STORM",stormUSA1996up$EVTYPE),]$EVTYPE="TROPICAL STORM"
+
+## WILDFIRE
+stormUSA1996up[grep("FOREST",stormUSA1996up$EVTYPE),]$EVTYPE="WILDFIRE"
+
+## WINTER WEATHER
+stormUSA1996up[grep("WINTER WEATHER",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("FREEZING RAIN",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("DRIZZLE",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("SQUALL",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("LIGHT ",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("BLOWING SNOW",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("^SNOW",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("LATE SEASON SNOW",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("ROADS",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("WINTRY MIX",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+stormUSA1996up[grep("MIXED PRECIPITATION",stormUSA1996up$EVTYPE),]$EVTYPE="WINTER WEATHER"
+```
+
+Finally, we transform the column EVTYPE into factor type and then we select only the state of Kansas(KS).
+
+```{r echo=TRUE}
+stormUSA1996up$EVTYPE<-as.factor(stormUSA1996up$EVTYPE)
+stormKS <-stormUSA1996up %>% filter(STATE=="KS") 
+```
+
+Now, we proceed to calculate the amounts with *PROPDMG* and *CROPDMG* with their units *PROPDMGEXP* and *CROPDMGEXP*. First, we clean the units by uppercasing them and blanking all the values that have 0 damage in *PROPDMG* and *CROPDMG*. Then we transform them into factors.
+
+```{r echo=TRUE}
+stormKS<-stormKS%>% mutate(PROPDMGEXP=(toupper(PROPDMGEXP)),CROPDMGEXP=(toupper(CROPDMGEXP))) %>% 
+mutate(PROPDMGEXP=ifelse(PROPDMG==0,"",PROPDMGEXP),CROPDMGEXP=ifelse(CROPDMG==0,"",CROPDMGEXP)) %>%
+mutate(PROPDMGEXP=as.factor(PROPDMGEXP),CROPDMGEXP=as.factor(CROPDMGEXP))
+levels(stormKS$PROPDMGEXP)
+levels(stormKS$CROPDMGEXP)
+
+```
+
+After we valide the units are correct, we use them in order to get the real value of damaged into K(1000) and sum the result in order to get the total economic damage.
+
+```{r echo=TRUE}
+stormKS<-stormKS%>% mutate(PROP_K=PROPDMG*case_when(PROPDMGEXP=="K"~1,PROPDMGEXP=="M"~1000,PROPDMGEXP=="B"~1000000,TRUE~0)) %>%
+mutate(CROP_K=CROPDMG*case_when(CROPDMGEXP=="K"~1,CROPDMGEXP=="M"~1000,CROPDMGEXP=="B"~1000000,TRUE~0)) %>%
+mutate(TOTALDAMAGE_K=PROP_K+CROP_K) %>% select(EVTYPE,STATE,FATALITIES,INJURIES,TOTALDAMAGE_K)
+head(stormKS)
 ```
 
 ## Results
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### The Most Harmful to Population Health
+
+In order to get the most harmful to Population Health, we are going to use the mean of fatalities and injures per type. First, we calculate the sum and the count per type in order to get mean and then, we order them by the mean of fatalities and create a barplot with the results.
+
+```{r echo=TRUE}
+stormKS_health<-stormKS  %>% group_by(EVTYPE) %>%
+  summarize(TOTAL_INJURIES=sum(INJURIES),TOTAL_FATALITIES=sum(FATALITIES),count=n(),.groups='drop') %>%
+  mutate(mean_fat=TOTAL_FATALITIES/count,mean_inj=TOTAL_INJURIES/count) %>%
+  arrange(desc(mean_fat)) %>% slice(1:5)
+
+head(stormKS_health)
+
+fat_inj<-t(as.vector(stormKS_health[,c("mean_fat","mean_inj")]))
+colnames(fat_inj)<-as.vector(stormKS_health$EVTYPE)
+barplot(fat_inj,col = c("blue","lightblue"),xlab = "Event",
+        ylab = "Mean  Person",ylim=c(0,2.5),beside=TRUE,cex.names=0.8)
+legend("topright", c("Fatalities","Injures"),
+       fill = c("blue","lightblue"))
+```
+
+As we can see in the column *count*, *Freezing Fog* and *Dense Fog* are not common events in Kansas. Thus, we should focus more in *Heavy Snow* as most harmful to population health in Kansas.
+
+### Event with The Greatest Economic Consequences
+
+In order to get the event with the greatest economic consequences, we are going to use the mean of total economic damage per type. First, we calculate the sum and the count per type in order to get mean and then, we order them by the mean of total economic damage and we create a barplot with the results.
+
+```{r echo=TRUE}
+stormKS_eco<-stormKS  %>% group_by(EVTYPE) %>%
+  summarize(TOTALDAMAGE_K=sum(TOTALDAMAGE_K),count=n(),.groups = 'drop') %>%
+  mutate(prom=TOTALDAMAGE_K/count) %>% arrange(desc(prom)) %>% slice(1:5)
+
+head(stormKS_eco)
+
+econo<-t(as.vector(stormKS_eco$prom))
+colnames(econo)<-as.vector(stormKS_eco$EVTYPE)
+barplot(econo,col = c("lightblue"),xlab = "Event",
+        ylab = "Mean Economic Damage(1000$)",ylim=c(0,20000),
+        cex.names=0.8)
+```
+
+It is very clear the *Drought* is by far the one which has the greatest economic Consequences in Kansas.
